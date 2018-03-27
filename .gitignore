@@ -1,0 +1,5 @@
+# Ignore the API credentials.
+client_secret.json
+
+# DS_Store
+.DS_Store
