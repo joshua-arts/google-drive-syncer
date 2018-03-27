@@ -8,7 +8,7 @@ class LocalSystem
 
   attr_accessor :files, :local_path
 
-  def initialize(local_path = "/Users/josh/Desktop/my-drive/")
+  def initialize(local_path)
     @local_path = local_path
 
     # A list of all locally tracked files.
@@ -18,11 +18,11 @@ class LocalSystem
     FileUtils.mkdir_p(@local_path)
 
     # Perform the initial update.
-    update
+    rebuild
   end
 
   # Updates our local file system structure.
-  def update
+  def rebuild
     @files = []
 
     Dir["#{@local_path}**/*"].each do |f|
@@ -34,4 +34,9 @@ class LocalSystem
     end
   end
 
+  # Delete a file locally.
+  def delete(file)
+    puts "Deleting #{File.basename(file)} locally."
+    FileUtils.rm(file.path)
+  end
 end

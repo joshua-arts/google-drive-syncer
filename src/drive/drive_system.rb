@@ -1,6 +1,7 @@
 require 'google/apis/drive_v3'
 require 'googleauth'
 require 'googleauth/stores/file_token_store'
+require 'mimemagic'
 
 # Include the extensions to Google::Apis::DriveV3::File.
 require_relative './drive_file'
@@ -10,17 +11,22 @@ class DriveSystem
 
   attr_accessor :files
 
+  # TODO: use extension to determine between PDF and TXT, PDF as default.
+  MIME_MAP = {
+    "application/vnd.google-apps.document" => "text/plain"
+  }
+
   OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
-  APPLICATION_NAME = '3000GoogleDrive'
-  CREDENTIALS_PATH = File.join(Dir.home, '.credentials', "drive-ruby-quickstart.yaml")
+  CREDENTIALS_PATH = File.join(Dir.home, '.credentials', "drive-sync.yaml")
   SCOPE = Google::Apis::DriveV3::AUTH_DRIVE
 
   DRIVE_FILES_TYPE = "application/vnd.google-apps"
   DRIVE_FOLDER_TYPE = "application/vnd.google-apps.folder"
 
   def initialize(config = 'client_secret.json')
+    # Initialize and authorize the DriveService.
     @service = Google::Apis::DriveV3::DriveService.new
-    @service.client_options.application_name = "Drive Sync"
+    @service.client_options.application_name = "Google Drive Sync"
     @service.authorization = authorize(config)
 
     # A map to link a Google Drive folder id to it's name.
@@ -30,18 +36,18 @@ class DriveSystem
     @files = []
 
     # Perform the initial update.
-    update
+    rebuild
   end
 
   # Updates our Google Drive file system structure.
-  def update
+  def rebuild
     @files = []
 
-    # Grab all untrashed files.
-    response = @service.list_files(q: 'not trashed', fields: "files(id, name, mime_type, parents, modifiedTime, createdTime)")
+    # Grab all untrashed, unshared files.
+    file_list = @service.list_files(q: "not trashed and 'me' in owners", fields: "files(id, name, mime_type, parents, modifiedTime, createdTime)")
 
     # Sort the objects by file and folder.
-    response.files.each do |obj|
+    file_list.files.each do |obj|
       if obj.mime_type == DRIVE_FOLDER_TYPE
         # Map folders so we know what files are in them.
         @folders[obj.id] = obj
@@ -55,11 +61,11 @@ class DriveSystem
     @files.each do |file| file.drive_path = google_drive_path(file) end
   end
 
-  # Download a Drive file to the local_path.
+  # Download a Google Drive file to the local_path.
   def download(file, local_path)
+    puts "Downloading #{file.name} from Google Drive."
     # Build the folders if neccesary.
     FileUtils.mkdir_p((local_path + file.drive_path).gsub(file.name, ''))
-    puts convert_type(file.mime_type)
 
     # Download the file.
     if file.mime_type.include?(DRIVE_FILES_TYPE)
@@ -69,24 +75,75 @@ class DriveSystem
     end
   end
 
+  # Upload a new local file to Google Drive.
+  def upload(local_file)
+    puts "Uploading #{File.basename(local_file)} to Google Drive."
+    # Guess the mime type.
+    mime_type = MimeMagic.by_path(local_file).type
+
+    metadata = {
+      name: File.basename(local_file),
+      mime_type: revert_type(mime_type)
+    }
+
+    # Create the new file in Google Drive.
+    @service.create_file(
+      metadata,
+      fields: 'id',
+      upload_source: local_file.path,
+      content_type: mime_type
+    )
+  end
+
+  # Update an existing file in Google Drive to match local.
+  def update(local_file)
+    puts "Updating #{File.basename(local_file)} in Google Drive."
+    # Guess the mime type.
+    mime_type = MimeMagic.by_path(local_file).type
+
+    # Update the existing file in Google Drive.
+    @service.update_file(
+      local_file_drive_id(local_file),
+      {},
+      fields: 'id',
+      upload_source: local_file.path,
+      content_type: mime_type
+    )
+  end
+
+  # Delete a file in Google Drive.
+  def delete(file)
+    puts "Deleting #{file.name} in Google Drive."
+    @service.delete_file(file.id)
+  end
+
+  # Determines if a local file match was trashed in Google Drive.
+  def is_in_trash?(local_file)
+    trashed = @service.list_files(q: "trashed and 'me' in owners", fields: "files(id, name)")
+    trashed.files.each do |file|
+      return true if File.basename(local_file) == file.name
+    end
+    false
+  end
+
   private
 
   # Authorize access to the Google Drive API.
   def authorize(config)
     FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH))
+
     client_id = Google::Auth::ClientId.from_file("client_secret.json")
     token_store = Google::Auth::Stores::FileTokenStore.new(file: CREDENTIALS_PATH)
     authorizer = Google::Auth::UserAuthorizer.new(client_id, SCOPE, token_store)
-    user_id = 'default'
-    credentials = authorizer.get_credentials(user_id)
-    if credentials.nil?
-      url = authorizer.get_authorization_url(base_url: OOB_URI)
-      puts "Open the following URL in the browser and enter the " + "resulting code after authorization"
-      puts url
-      code = gets
-      credentials = authorizer.get_and_store_credentials_from_code(user_id: user_id, code: code, base_url: OOB_URI)
-    end
-    credentials
+    credentials = authorizer.get_credentials('default')
+
+    return credentials unless credentials.nil?
+
+    # User needs to authorize the Google Drive API.
+    url = authorizer.get_authorization_url(base_url: OOB_URI)
+    puts "You need to authorize access to your Google Drive.\nOpen the following URL in the browser and enter the resulting code after authorization.\n#{url}"
+    code = gets
+    authorizer.get_and_store_credentials_from_code(user_id: 'default', code: code, base_url: OOB_URI)
   end
 
   # Finds the files path in Google Drive.
@@ -119,12 +176,18 @@ class DriveSystem
     path.join('/')
   end
 
+  # Finds the id of the file in Google Drive that a local file corresponds to.
+  def local_file_drive_id(local_file)
+    (@files.find do |file| local_file.sub_path == file.drive_path end).id || nil
+  end
+
   # Converts Google Drive types to compatible ones.
   def convert_type(type)
-    if type == 'application/vnd.google-apps.document'
-      'text/plain'
-    else
-      type
-    end
+    MIME_MAP[type] || type
+  end
+
+  # Reverts a mimetype to a Google Drive compatible one.
+  def revert_type(type)
+    MIME_MAP.key(type) || type
   end
 end
