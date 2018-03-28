@@ -1,5 +1,8 @@
 # Ignore the API credentials.
 client_secret.json
 
+# Ignore any pid files.
+*.pid
+
 # DS_Store
 .DS_Store

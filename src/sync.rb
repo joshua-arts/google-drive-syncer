@@ -21,6 +21,9 @@ class DriveSync
         # Sync the two.
         puts "Syncing..."
         sync(drive, local)
+
+        # Update the last sync time.
+        @@last_sync = DateTime.now
       end
     end
 
@@ -50,19 +53,17 @@ class DriveSync
         unless local_file.has_drive_match?(drive.files)
           # If the file is in the Google Drive trash, then it was deleted.
           # Otherwise, a new file was created locally.
+
+          # NOTE: Is there a better way to do this? Works under the
+          # assumption that the user doesn't delete a file from Google
+          # Drive completely before it can sync.
           if drive.is_in_trash?(local_file)
+            # Delete the file locally.
             local.delete(local_file)
           else
+            # Upload changes to Google Drive.
             drive.upload(local_file)
           end
-
-          #if time_to_datetime(local_file.ctime) > @@last_sync
-            # Upload changes to Google Drive.
-          #  drive.upload(local_file)
-          #else
-            # File has been deleted in Google Drive so delete locally.
-          #  local.delete(local_file)
-          #end
         else
           if time_to_datetime(local_file.mtime) > @@last_sync
             # A local file has been modified, update.
@@ -70,9 +71,6 @@ class DriveSync
           end
         end
       end
-
-      # Update the last sync time.
-      @@last_sync = DateTime.now
     end
 
     # Brings the local filesystem up to date with Google Drive.

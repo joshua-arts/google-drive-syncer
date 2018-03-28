@@ -33,7 +33,7 @@ class DriveSystem
     @folders = {}
 
     # A list of all files in Google Drive.
-    @files = []
+    @files, @trash = [], []
 
     # Perform the initial update.
     rebuild
@@ -41,10 +41,13 @@ class DriveSystem
 
   # Updates our Google Drive file system structure.
   def rebuild
-    @files = []
+    @files, @trash = [], []
 
     # Grab all untrashed, unshared files.
     file_list = @service.list_files(q: "not trashed and 'me' in owners", fields: "files(id, name, mime_type, parents, modifiedTime, createdTime)")
+
+    # Grab the trash.
+    @trash = @service.list_files(q: "trashed and 'me' in owners", fields: "files(id, name)").files
 
     # Sort the objects by file and folder.
     file_list.files.each do |obj|
@@ -101,9 +104,12 @@ class DriveSystem
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file).type
 
+    # Find the id of the file to update.
+    id = (@files.find do |file| local_file.sub_path == file.drive_path end).id
+
     # Update the existing file in Google Drive.
     @service.update_file(
-      local_file_drive_id(local_file),
+      id,
       {},
       fields: 'id',
       upload_source: local_file.path,
@@ -119,8 +125,7 @@ class DriveSystem
 
   # Determines if a local file match was trashed in Google Drive.
   def is_in_trash?(local_file)
-    trashed = @service.list_files(q: "trashed and 'me' in owners", fields: "files(id, name)")
-    trashed.files.each do |file|
+    @trash.each do |file|
       return true if File.basename(local_file) == file.name
     end
     false
@@ -174,11 +179,6 @@ class DriveSystem
     end
 
     path.join('/')
-  end
-
-  # Finds the id of the file in Google Drive that a local file corresponds to.
-  def local_file_drive_id(local_file)
-    (@files.find do |file| local_file.sub_path == file.drive_path end).id || nil
   end
 
   # Converts Google Drive types to compatible ones.

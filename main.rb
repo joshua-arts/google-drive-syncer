@@ -12,8 +12,28 @@ end
 
 # Handle command line options.
 opts = Trollop::options do
+  opt :stop, "Stop syncing."
   opt :path, "Path to folder to sync.", type: :string
   opt :sync_delay, "Seconds between each sync.", default: 20
+end
+
+if opts[:stop]
+  abort("drive-sync is not running, nothing to stop.") unless File.exists?("sync.pid")
+
+  pid = File.read("sync.pid").to_i
+
+  # Stop the existing syncing process.
+  Process.kill("TERM", pid)
+
+  # Delete the pid file.
+  File.delete("sync.pid")
+
+  abort("drive-sync has been disabled.")
+end
+
+# Don't allow for multiple processes.
+if File.exists?("sync.pid")
+  abort("drive-sync is already running, to stop use 'drive-sync --stop'")
 end
 
 # Path validation.
@@ -26,6 +46,8 @@ else
   abort("You must provide a path to the local folder to sync using --path.")
 end
 
+puts "Starting syncing process for #{opts[:path]}..."
+
 # Initialize the drive file system.
 drive = DriveSystem.new
 
@@ -35,5 +57,14 @@ local = LocalSystem.new(opts[:path])
 # Do an initial sync to bring local up to speed with Google Drive.
 DriveSync.pull_drive(drive, local.local_path)
 
-# Start syncing process.
-DriveSync.sync_loop(drive, local, opts[:sync_delay])
+# Start the sync loop in a seperate process.
+pid = fork do
+  DriveSync.sync_loop(drive, local, opts[:sync_delay])
+end
+
+puts pid
+
+# Keep track of the pid for stopping.
+File.write("sync.pid", pid)
+
+puts "Syncing started, use 'drive-sync --stop' to stop."
