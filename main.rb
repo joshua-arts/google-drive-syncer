@@ -10,6 +10,8 @@ def prompt(*args)
   gets
 end
 
+# TODO: PDF conversion, test creating folders locally and in drive.
+
 # Handle command line options.
 opts = Trollop::options do
   opt :stop, "Stop syncing."
@@ -56,13 +58,12 @@ local = LocalSystem.new(opts[:path])
 
 # Do an initial sync to bring local up to speed with Google Drive.
 DriveSync.pull_drive(drive, local.local_path)
+puts "Finished initial sync."
 
 # Start the sync loop in a seperate process.
 pid = fork do
   DriveSync.sync_loop(drive, local, opts[:sync_delay])
 end
-
-puts pid
 
 # Keep track of the pid for stopping.
 File.write("sync.pid", pid)

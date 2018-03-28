@@ -18,8 +18,7 @@ class DriveSync
         # Update the local system.
         local.rebuild
 
-        # Sync the two.
-        puts "Syncing..."
+        # Sync the file systems.
         sync(drive, local)
 
         # Update the last sync time.
@@ -78,7 +77,6 @@ class DriveSync
       drive.files.each do |drive_file|
         drive.download(drive_file, local_path)
       end
-      puts "Finished initial sync."
     end
 
     private

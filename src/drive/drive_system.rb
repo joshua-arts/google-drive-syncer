@@ -3,15 +3,14 @@ require 'googleauth'
 require 'googleauth/stores/file_token_store'
 require 'mimemagic'
 
-# Include the extensions to Google::Apis::DriveV3::File.
-require_relative './drive_file'
+require_relative '../logger.rb'
+require_relative './drive_file.rb'
 
 # For tracking the Google Drive file system.
 class DriveSystem
 
   attr_accessor :files
 
-  # TODO: use extension to determine between PDF and TXT, PDF as default.
   MIME_MAP = {
     "application/vnd.google-apps.document" => "text/plain"
   }
@@ -66,7 +65,7 @@ class DriveSystem
 
   # Download a Google Drive file to the local_path.
   def download(file, local_path)
-    puts "Downloading #{file.name} from Google Drive."
+    Logger.log("Downloading #{file.name} from Google Drive.")
     # Build the folders if neccesary.
     FileUtils.mkdir_p((local_path + file.drive_path).gsub(file.name, ''))
 
@@ -80,7 +79,7 @@ class DriveSystem
 
   # Upload a new local file to Google Drive.
   def upload(local_file)
-    puts "Uploading #{File.basename(local_file)} to Google Drive."
+    Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file).type
 
@@ -100,7 +99,7 @@ class DriveSystem
 
   # Update an existing file in Google Drive to match local.
   def update(local_file)
-    puts "Updating #{File.basename(local_file)} in Google Drive."
+    Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file).type
 
@@ -119,7 +118,7 @@ class DriveSystem
 
   # Delete a file in Google Drive.
   def delete(file)
-    puts "Deleting #{file.name} in Google Drive."
+    Logger.log("Deleting #{file.name} in Google Drive.")
     @service.delete_file(file.id)
   end
 

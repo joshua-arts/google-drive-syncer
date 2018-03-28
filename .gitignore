@@ -4,5 +4,8 @@ client_secret.json
 # Ignore any pid files.
 *.pid
 
+# Ignore log files.
+*.log
+
 # DS_Store
 .DS_Store

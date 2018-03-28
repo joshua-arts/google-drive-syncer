@@ -1,7 +1,7 @@
 require 'fileutils'
 
-# Include the extensions to File.
-require_relative './local_file'
+require_relative '../logger.rb'
+require_relative './local_file.rb'
 
 # For tracking the local file system.
 class LocalSystem
@@ -36,7 +36,7 @@ class LocalSystem
 
   # Delete a file locally.
   def delete(file)
-    puts "Deleting #{File.basename(file)} locally."
+    Logger.log("Deleting #{File.basename(file)} locally.")
     FileUtils.rm(file.path)
   end
 end
