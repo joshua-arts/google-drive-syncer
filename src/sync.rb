@@ -1,12 +1,15 @@
 require 'date'
 
+# TODO:
+# renaming in drive causes duplicate.
+
 class DriveSync
 
   @@last_sync = DateTime.now
 
   class << self
     # Sync every t seconds.
-    def sync_loop(drive, local, t = 20)
+    def sync_loop(drive, local, t = 10)
       # Add (1.5 * t) seconds to @@last_sync so we don't fire
       # uploads on files pulled from the initial sync.
       @@last_sync += Rational(1.5 * t, 86400)
@@ -28,12 +31,16 @@ class DriveSync
 
     # Syncs the Google Drive file system to the local file system.
     def sync(drive, local)
+      # Files that have just been downloaded.
+      freeze = []
+
       # Handle Google Drive changes.
       drive.files.each do |drive_file|
         # Check for Google Drive modifications.
         if drive_file.modified_time > @@last_sync
           # Download the new file.
           drive.download(drive_file, local.local_path)
+          freeze << drive_file.drive_path          
         end
 
         # Check for files in Google Drive that don't exist locally.
@@ -41,7 +48,11 @@ class DriveSync
           # If the Google Drive file hasn't been modified.
           if drive_file.modified_time < @@last_sync
             # Delete the file in drive.
+            verify = drive_file.drive_path
             drive.delete(drive_file)
+
+            # Check that the path is still intact locally.
+            drive.verify_path(verify, local)
           end
         end
       end
@@ -52,13 +63,13 @@ class DriveSync
         unless local_file.has_drive_match?(drive.files)
           # If the file is in the Google Drive trash, then it was deleted.
           # Otherwise, a new file was created locally.
-
-          # NOTE: Is there a better way to do this? Works under the
-          # assumption that the user doesn't delete a file from Google
-          # Drive completely before it can sync.
           if drive.is_in_trash?(local_file)
             # Delete the file locally.
+            verify = local_file.sub_path
             local.delete(local_file)
+
+            # Check that the path is still intact in drive.
+            local.verify_path(verify, drive)
           else
             # Upload changes to Google Drive.
             drive.upload(local_file)
@@ -66,7 +77,7 @@ class DriveSync
         else
           if time_to_datetime(local_file.mtime) > @@last_sync
             # A local file has been modified, update.
-            drive.update(local_file)
+            drive.update(local_file) unless freeze.include?(local_file.sub_path)
           end
         end
       end

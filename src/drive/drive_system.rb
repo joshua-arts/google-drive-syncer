@@ -9,7 +9,7 @@ require_relative './drive_file.rb'
 # For tracking the Google Drive file system.
 class DriveSystem
 
-  attr_accessor :files
+  attr_accessor :files, :folders
 
   MIME_MAP = {
     "application/vnd.google-apps.document" => "text/plain"
@@ -34,6 +34,9 @@ class DriveSystem
     # A list of all files in Google Drive.
     @files, @trash = [], []
 
+    # Locks folders and files from double deletion.
+    @lock = []
+
     # Perform the initial update.
     rebuild
   end
@@ -41,6 +44,7 @@ class DriveSystem
   # Updates our Google Drive file system structure.
   def rebuild
     @files, @trash = [], []
+    @folders = {}
 
     # Grab all untrashed, unshared files.
     file_list = @service.list_files(q: "not trashed and 'me' in owners", fields: "files(id, name, mime_type, parents, modifiedTime, createdTime)")
@@ -61,11 +65,15 @@ class DriveSystem
 
     # Set files local path match.
     @files.each do |file| file.drive_path = google_drive_path(file) end
+
+    @lock = []
   end
 
   # Download a Google Drive file to the local_path.
   def download(file, local_path)
-    Logger.log("Downloading #{file.name} from Google Drive.")
+    #Logger.log("Downloading #{file.name} from Google Drive.")
+    puts "Downloading #{file.name} from Google Drive."
+
     # Build the folders if neccesary.
     FileUtils.mkdir_p((local_path + file.drive_path).gsub(file.name, ''))
 
@@ -79,14 +87,20 @@ class DriveSystem
 
   # Upload a new local file to Google Drive.
   def upload(local_file)
-    Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
+    #Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
+    puts "Uploading #{File.basename(local_file)} to Google Drive."
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file).type
 
+    # Find the files folder.
+    folder = find_folder(local_file.sub_path)
+
     metadata = {
       name: File.basename(local_file),
-      mime_type: revert_type(mime_type)
+      mime_type: revert_type(mime_type),
     }
+
+    metadata[:parents] = [folder] if folder
 
     # Create the new file in Google Drive.
     @service.create_file(
@@ -99,7 +113,8 @@ class DriveSystem
 
   # Update an existing file in Google Drive to match local.
   def update(local_file)
-    Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
+    #Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
+    puts "Updating #{File.basename(local_file)} in Google Drive."
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file).type
 
@@ -118,8 +133,42 @@ class DriveSystem
 
   # Delete a file in Google Drive.
   def delete(file)
-    Logger.log("Deleting #{file.name} in Google Drive.")
-    @service.delete_file(file.id)
+    #Logger.log("Deleting #{file.name} in Google Drive.")
+    puts "Deleting #{file.name} in Google Drive."
+
+    unless @lock.include?(file.id)
+      @lock << file.id
+      @service.delete_file(file.id)
+    end
+  end
+
+  # Deletes drive folders that no longer exist locally.
+  def verify_path(file, local)
+    pieces = file.split('/')[0...-1]
+
+    pieces.each do |p|
+      # Check if folder exists in drive.
+      folder = @folders.values.find do |f| f.name == p end
+      next unless folder
+  
+      local_folder_names = local.get_folders.map do |f|
+        f.split('/').last
+      end
+
+      unless local_folder_names.include?(folder.name)
+        #Logger.log("Deleting folder #{folder.name} in Google Drive.")
+        puts "Deleting folder #{folder.name} in Google Drive."
+        unless @lock.include?(folder.id)
+          @lock << folder.id
+
+          @files.each do |f|
+            @lock << f.id if f.parents.include?(folder.id)
+          end
+
+          @service.delete_file(folder.id)
+        end
+      end
+    end
   end
 
   # Determines if a local file match was trashed in Google Drive.
@@ -178,6 +227,43 @@ class DriveSystem
     end
 
     path.join('/')
+  end
+
+  # Finds the folder ID's that a local file belongs to.
+  def find_folder(sub_path)
+    ensure_path_exists(sub_path)
+    f_break = sub_path.split('/')
+    return nil if f_break.length == 1
+    f_name = f_break[0...-1].last
+    f = @folders.values.find do |f| f.name == f_name end
+    f.id
+  end
+
+  # Creates a folder path in Google Drive.
+  def ensure_path_exists(sub_path)
+    path_break = sub_path.split('/')[0...-1]
+    parent = nil
+    path_break.each do |p|
+      f = @folders.values.find do |f| f.name == p end
+      if f
+        parent = f.id
+      else
+        folder_metadata = {
+          name: p,
+          mime_type: DRIVE_FOLDER_TYPE
+        }
+
+        folder_metadata[:parents] = [parent] if parent
+
+        folder = @service.create_file(
+          folder_metadata,
+          fields: 'id, mime_type, name, parents'
+        )
+
+        @folders[folder.id] = folder
+        parent = folder.id
+      end
+    end
   end
 
   # Converts Google Drive types to compatible ones.

@@ -1,4 +1,4 @@
-# Google Drive Sync
+# Google Drive Syncer
 
 Short description of the project.
 
