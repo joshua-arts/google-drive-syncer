@@ -89,15 +89,21 @@ class DriveSystem
   def upload(local_file)
     #Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
     puts "Uploading #{File.basename(local_file)} to Google Drive."
+
     # Guess the mime type.
-    mime_type = MimeMagic.by_path(local_file).type
+    mime_type = MimeMagic.by_path(local_file)
+    drive_type = if mime_type
+      revert_type(mime_type.type)
+    else
+      "application/vnd.google-apps.document"
+    end
 
     # Find the files folder.
     folder = find_folder(local_file.sub_path)
 
     metadata = {
       name: File.basename(local_file),
-      mime_type: revert_type(mime_type),
+      mime_type: drive_type,
     }
 
     metadata[:parents] = [folder] if folder
@@ -115,8 +121,14 @@ class DriveSystem
   def update(local_file)
     #Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
     puts "Updating #{File.basename(local_file)} in Google Drive."
+
     # Guess the mime type.
-    mime_type = MimeMagic.by_path(local_file).type
+    mime_type = MimeMagic.by_path(local_file)
+    drive_type = if mime_type
+      revert_type(mime_type.type)
+    else
+      "application/vnd.google-apps.document"
+    end
 
     # Find the id of the file to update.
     id = (@files.find do |file| local_file.sub_path == file.drive_path end).id
@@ -127,7 +139,7 @@ class DriveSystem
       {},
       fields: 'id',
       upload_source: local_file.path,
-      content_type: mime_type
+      content_type: drive_type
     )
   end
 
