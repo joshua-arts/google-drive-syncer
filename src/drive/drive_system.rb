@@ -91,11 +91,16 @@ class DriveSystem
     puts "Uploading #{File.basename(local_file)} to Google Drive."
 
     # Guess the mime type.
-    mime_type = MimeMagic.by_path(local_file)
-    drive_type = if mime_type
-      revert_type(mime_type.type)
+    mime = MimeMagic.by_path(local_file)
+
+    # If we can guess the mime type.
+    if mime then
+      drive_type = revert_type(mime.type)
+      mime_type = mime.type
     else
-      "application/vnd.google-apps.document"
+      # Assume text.
+      drive_type = "application/vnd.google-apps.document"
+      mime_type = "text/plain"
     end
 
     # Find the files folder.
@@ -103,7 +108,7 @@ class DriveSystem
 
     metadata = {
       name: File.basename(local_file),
-      mime_type: drive_type,
+      mime_type: drive_type
     }
 
     metadata[:parents] = [folder] if folder
@@ -113,7 +118,7 @@ class DriveSystem
       metadata,
       fields: 'id',
       upload_source: local_file.path,
-      content_type: drive_type
+      content_type: mime_type
     )
   end
 
