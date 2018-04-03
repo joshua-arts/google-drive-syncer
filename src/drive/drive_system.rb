@@ -113,7 +113,7 @@ class DriveSystem
       metadata,
       fields: 'id',
       upload_source: local_file.path,
-      content_type: mime_type
+      content_type: drive_type
     )
   end
 
