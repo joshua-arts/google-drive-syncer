@@ -10,10 +10,9 @@ def prompt(*args)
   gets
 end
 
-# TODO: PDF conversion, test creating folders locally and in drive.
-
 # Handle command line options.
 opts = Trollop::options do
+  opt :test, "Starts Drive Sync in test mode."
   opt :stop, "Stop syncing."
   opt :path, "Path to folder to sync.", type: :string
   opt :sync_delay, "Seconds between each sync.", default: 20
@@ -22,6 +21,7 @@ end
 if opts[:stop]
   abort("drive-sync is not running, nothing to stop.") unless File.exists?("sync.pid")
 
+  # Grab the pid.
   pid = File.read("sync.pid").to_i
 
   # Stop the existing syncing process.
@@ -48,24 +48,32 @@ else
   abort("You must provide a path to the local folder to sync using --path.")
 end
 
-puts "Starting syncing process for #{opts[:path]}..."
-
 # Initialize the drive file system.
 drive = DriveSystem.new
 
 # Initialize the local file system.
 local = LocalSystem.new(opts[:path])
 
-# Do an initial sync to bring local up to speed with Google Drive.
-DriveSync.pull_drive(drive, local.local_path)
-puts "Finished initial sync."
+  # Do an initial sync to bring local up to speed with Google Drive.
+  DriveSync.pull_drive(drive, local.local_path)
+  puts "Finished initial sync."
 
-# Start the sync loop in a seperate process.
-pid = fork do
-  DriveSync.sync_loop(drive, local, opts[:sync_delay])
+# Start in the correct mode.
+if opts[:test]
+  puts "Starting syncing process for #{opts[:path]} in TEST mode..."
+
+  # Start syncing but don't fork a new process.
+  DriveSync.sync_loop(drive, local, 10)
+else
+  puts "Starting syncing process for #{opts[:path]}..."
+
+  # Start the sync loop in a seperate process.
+  pid = fork do
+    DriveSync.sync_loop(drive, local, opts[:sync_delay])
+  end
+
+  # Keep track of the pid for stopping.
+  File.write("sync.pid", pid)
+
+  puts "Syncing started, use 'drive-sync --stop' to stop."
 end
-
-# Keep track of the pid for stopping.
-File.write("sync.pid", pid)
-
-puts "Syncing started, use 'drive-sync --stop' to stop."
