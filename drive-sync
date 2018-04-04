@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'trollop'
 
 require_relative 'src/sync.rb'
