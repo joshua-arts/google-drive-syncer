@@ -14,7 +14,7 @@ class DriveSystem
   MIME_MAP = {
     "application/vnd.google-apps.document" => "text/plain",
     "application/vnd.google-apps.spreadsheet" => "text/csv",
-    "application/vnd.google-apps.presentation" => "application/vnd.ms-powerpoint"
+    "application/vnd.google-apps.presentation" => "application/vnd.openxmlformats-officedocument.presentationml.presentation"
   }
 
   OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
