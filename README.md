@@ -6,21 +6,23 @@
 
 ## Installation
 
-1) Clone the repository to your machine.
+1) Clone the repository to your machine and change into it.
 
 ~~~
 git clone https://github.com/joshua-arts/google-drive-syncer
 ~~~
 
-2) Get credentials for the [Google Drive API](https://developers.google.com/drive/). To do this, go to the [Google Drive API Ruby Quickstart](https://developers.google.com/drive/v3/web/quickstart/ruby) and complete step one, a to h (don't worry about the other steps). Once you've downloaded your `client_secret.json` file, drag it into the `google-drive-syncer` directory you cloned in step one
+2) Install [bundler](http://bundler.io/) if you don't already have it. Then bundle the project by typing `bundle`.
 
-3) To setup the `drive-sync` command, you need to add it to your path. From inside the `google-drive-syncer` directory, run:
+3) Get credentials for the [Google Drive API](https://developers.google.com/drive/). To do this, go to the [Google Drive API Ruby Quickstart](https://developers.google.com/drive/v3/web/quickstart/ruby) and complete step one, a to h (don't worry about the other steps). Once you've downloaded your `client_secret.json` file, drag it into the `google-drive-syncer` directory you cloned in step one
+
+4) To setup the `drive-sync` command, you need to add it to your path. From inside the `google-drive-syncer` directory, run:
 
 ~~~
 export PATH=$PATH:$(pwd)
 ~~~
 
-4) You should now be able to run the command. The first time you run it, you'll have to link it to a specific Google Account. Run `drive-sync --path "/path/to/directory/to/sync"`, copy and paste the generated link into your browser, authenticate a Google Account, and paste the generated token back into the terminal. The token will be saved locally and you won't need to authenticate again.
+5) You should now be able to run the command. The first time you run it, you'll have to link it to a specific Google Account. Run `drive-sync --path "/path/to/directory/to/sync"`, copy and paste the generated link into your browser, authenticate a Google Account, and paste the generated token back into the terminal. The token will be saved locally and you won't need to authenticate again.
 
 ## Usage
 
