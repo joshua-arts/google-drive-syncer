@@ -53,8 +53,8 @@ class LocalSystem
       end
 
       if folder.nil?
-        #Logger.log("Deleting #{f_name} folder locally.")
-        puts "Deleting #{f} folder locally."
+        Logger.log("Deleting #{f_name} folder locally.")
+
         fp = "#{@local_path}#{pieces.join('/')}/#{f}"
         FileUtils.rmdir(fp) if File.directory?(fp)
       else
@@ -65,8 +65,7 @@ class LocalSystem
 
   # Delete a file locally.
   def delete(file)
-    #Logger.log("Deleting #{File.basename(file)} locally.")
-    puts "Deleting #{File.basename(file)} locally."
+    Logger.log("Deleting #{File.basename(file)} locally.")
 
     FileUtils.rm(file.path)
   end

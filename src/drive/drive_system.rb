@@ -14,7 +14,7 @@ class DriveSystem
   MIME_MAP = {
     "application/vnd.google-apps.document" => "text/plain",
     "application/vnd.google-apps.spreadsheet" => "text/csv",
-    "application/vnd.google-apps.presentation" => "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    "application/vnd.google-apps.presentation" => "application/pdf"
   }
 
   OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
@@ -73,8 +73,7 @@ class DriveSystem
 
   # Download a Google Drive file to the local_path.
   def download(file, local_path)
-    #Logger.log("Downloading #{file.name} from Google Drive.")
-    puts "Downloading #{file.name} from Google Drive."
+    Logger.log("Downloading #{file.name} from Google Drive.")
 
     # Build the folders if neccesary.
     FileUtils.mkdir_p((local_path + file.drive_path).gsub(file.name, ''))
@@ -89,8 +88,7 @@ class DriveSystem
 
   # Upload a new local file to Google Drive.
   def upload(local_file)
-    #Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
-    puts "Uploading #{File.basename(local_file)} to Google Drive."
+    Logger.log("Uploading #{File.basename(local_file)} to Google Drive.")
 
     # Guess the mime type.
     mime = MimeMagic.by_path(local_file)
@@ -126,8 +124,7 @@ class DriveSystem
 
   # Update an existing file in Google Drive to match local.
   def update(local_file)
-    #Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
-    puts "Updating #{File.basename(local_file)} in Google Drive."
+    Logger.log("Updating #{File.basename(local_file)} in Google Drive.")
 
     # Guess the mime type.
     mime_type = MimeMagic.by_path(local_file)
@@ -152,8 +149,7 @@ class DriveSystem
 
   # Delete a file in Google Drive.
   def delete(file)
-    #Logger.log("Deleting #{file.name} in Google Drive.")
-    puts "Deleting #{file.name} in Google Drive."
+    Logger.log("Deleting #{file.name} in Google Drive.")
 
     unless @lock.include?(file.id)
       @lock << file.id
@@ -175,8 +171,8 @@ class DriveSystem
       end
 
       unless local_folder_names.include?(folder.name)
-        #Logger.log("Deleting folder #{folder.name} in Google Drive.")
-        puts "Deleting folder #{folder.name} in Google Drive."
+        Logger.log("Deleting folder #{folder.name} in Google Drive.")
+
         unless @lock.include?(folder.id)
           @lock << folder.id
 

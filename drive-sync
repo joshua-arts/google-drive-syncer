@@ -56,9 +56,9 @@ drive = DriveSystem.new
 # Initialize the local file system.
 local = LocalSystem.new(opts[:path])
 
-  # Do an initial sync to bring local up to speed with Google Drive.
-  DriveSync.pull_drive(drive, local.local_path)
-  puts "Finished initial sync."
+# Do an initial sync to bring local up to speed with Google Drive.
+DriveSync.pull_drive(drive, local.local_path)
+puts "Finished initial sync."
 
 # Start in the correct mode.
 if opts[:test]
